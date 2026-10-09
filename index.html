@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP control con IOT Contrera y Chiavon.</title>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js"></script>
+<style>
+  :root {
+    --gris-fondo: #c9cacc;
+    --gris-tarjeta: #ececed;
+    --gris-texto: #4a4d51;
+    --bordo: #7b1e2e;
+    --bordo-oscuro: #5e1522;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--gris-fondo);
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--gris-texto);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+  }
+  h1 {
+    margin: 0 0 24px;
+    text-align: center;
+    font-size: clamp(1.4rem, 4vw, 2.2rem);
+    color: var(--bordo);
+    letter-spacing: .5px;
+  }
+  .card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--gris-tarjeta);
+    border-top: 6px solid var(--bordo);
+    border-radius: 14px;
+    padding: 32px 24px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  }
+  .label {
+    font-size: 1.3rem;
+    text-transform: lowercase;
+    letter-spacing: 2px;
+    color: var(--gris-texto);
+  }
+  .valor {
+    margin: 12px 0 28px;
+    font-size: 4.5rem;
+    font-weight: 700;
+    color: var(--bordo);
+  }
+  .botones { display: flex; gap: 16px; justify-content: center; }
+  button {
+    flex: 1;
+    padding: 14px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .15s, transform .05s;
+  }
+  button:active { transform: scale(.97); }
+  #abrir {
+    background: var(--bordo);
+    color: #f5f5f6;
+    border: 2px solid var(--bordo);
+  }
+  #abrir:hover { background: var(--bordo-oscuro); }
+  #cerrar {
+    background: transparent;
+    color: var(--bordo);
+    border: 2px solid var(--bordo);
+  }
+  #cerrar:hover { background: rgba(123,30,46,.12); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .estado { margin-top: 24px; font-size: .85rem; color: #7a7d81; }
+  .punto {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    background: #999; margin-right: 6px;
+  }
+  .punto.ok { background: var(--bordo); }
+</style>
+</head>
+<body>
+  <h1>TP control con IOT Contrera y Chiavon.</h1>
+
+  <div class="card">
+    <div class="label">temperatura</div>
+    <div class="valor"><span id="temp">--</span></div>
+
+    <div class="botones">
+      <button id="abrir" disabled>abrir</button>
+      <button id="cerrar" disabled>cerrar</button>
+    </div>
+
+    <div class="estado"><span class="punto" id="punto"></span><span id="estado">Conectando...</span></div>
+  </div>
+
+<script>
+  // Los navegadores no pueden usar TCP (1883); test.mosquitto.org
+  // ofrece el mismo broker por WebSockets seguros en el puerto 8081.
+  const BROKER = "wss://test.mosquitto.org:8081";
+  const TOPIC_TEMP  = "EtuSiemens/Contrera/Temperatura";
+  const TOPIC_SERVO = "EtuSiemens/Chiavon/Servo";
+
+  const elTemp = document.getElementById("temp");
+  const elEstado = document.getElementById("estado");
+  const elPunto = document.getElementById("punto");
+  const btnAbrir = document.getElementById("abrir");
+  const btnCerrar = document.getElementById("cerrar");
+
+  const client = mqtt.connect(BROKER, {
+    clientId: "dashboard_" + Math.random().toString(16).slice(2, 10),
+    reconnectPeriod: 3000
+  });
+
+  function setConectado(ok, texto) {
+    elEstado.textContent = texto;
+    elPunto.classList.toggle("ok", ok);
+    btnAbrir.disabled = !ok;
+    btnCerrar.disabled = !ok;
+  }
+
+  client.on("connect", () => {
+    setConectado(true, "Conectado a test.mosquitto.org");
+    client.subscribe(TOPIC_TEMP);
+  });
+  client.on("reconnect", () => setConectado(false, "Reconectando..."));
+  client.on("close", () => setConectado(false, "Desconectado"));
+  client.on("error", () => setConectado(false, "Error de conexión"));
+
+  client.on("message", (topic, payload) => {
+    if (topic === TOPIC_TEMP) elTemp.textContent = payload.toString();
+  });
+
+  btnAbrir.addEventListener("click",  () => client.publish(TOPIC_SERVO, "1"));
+  btnCerrar.addEventListener("click", () => client.publish(TOPIC_SERVO, "0"));
+</script>
+</body>
+</html>
